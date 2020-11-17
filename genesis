@@ -1,0 +1,76 @@
+---
+title: "Genesis Coding Challenge"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Load in data
+```{r}
+setwd("C:/Users/Matthew.Hanauer/Desktop")
+patients = readRDS("C:/Users/Matthew.Hanauer/Desktop/patients.rds")
+patients
+```
+1. Calculate the median survival time (from surgery) and 95% confidence interval (using log-log) for all patients. 
+```{r}
+library(survival)
+patients$time_to_death = patients$date_of_death- patients$surgery_date
+patients$censor  = patients$time_to_death
+patients$censor[is.na(patients$censor)] <- 0
+patients$censor = ifelse(patients$censor == 0, 0,1)
+q1 = survfit(Surv(time_to_death, censor) ~ drugA, data = patients, conf.type = "log-log")
+q1
+```
+1.	Calculate the median survival time (from surgery) and 95% confidence interval for all patients stratified by the drug they received. If a patient received more than one drug, consider them as “Combo Therapy”, if they received no drugs, consider them as “No Therapy”, otherwise they would be part of the drug they received (e.g. Drug A, Drug B, Drug C).
+```{r}
+patients$drug_sum = patients$drugA + patients$drugB + patients$drugC
+patients$no_drug = ifelse(patients$drug_sum == 0, 1, 0)
+patients$one_more_drug = ifelse(patients$drug_sum >= 2, 1, 0)
+
+patients$drug = ifelse(patients$drugA == 1, 1, ifelse(patients$drugB == 1, 1, ifelse(patients$drugC == 1, 1, ifelse(patients$one_more_drug == 1, 1, ifelse(patients$no_drug == 1, 0, "Wrong")))))
+
+patients$drug = ifelse(patients$drugA == 1, "drugA", ifelse(patients$drugB == 1, "drugB", ifelse(patients$drugC == 1, "drugC", ifelse(patients$no_drug == 1, "no_drug", ifelse(patients$one_more_drug == 1, "one_more_drug", "Wrong")))))
+
+patients$drug = ifelse(patients$one_more_drug == 1, "one_more_drug", patients$drug)
+
+
+q2 = survfit(Surv(time_to_death, censor) ~ drug, data = patients, conf.type = "log-log")
+q2
+```
+3. Create a Kaplan-Meier plot with a risk table for survival by drug therapy.
+```{r}
+plot(survfit(Surv(time_to_death, censor) ~ drug, data = patients, conf.type = "log-log"))
+
+```
+Interpret the Kaplan-Meier plot from question 3. How does drug therapy impact survival?
+It appears as though no drug is the most effective with a median survival rate of 775 dates CI = [668, 1733]
+
+Create a simple table of patient characteristics like the following
+```{r}
+n = dim(patients)[1]
+n = data.frame(total = n)
+n
+gender= describe.factor(patients$gender)
+gender = data.frame(gender)
+female = gender$F
+male = gender$M
+female_n = female[1]
+female_p = paste(female[2],"%")
+female = paste0(female_n, " ", female_p)
+male_n = male[1]
+male_p = paste0(male[2],"%")
+male = paste0(male_n, " ", male_p)
+age_sugery = round((patients$surgery_date - patients$date_of_birth) / 365,2)
+age_sugery_median = median(age_sugery)
+age_sugery_mean = mean(age_sugery)
+age_sugery_sd = sd(age_sugery)
+
+patient_characs = data.frame(n, age_sugery_median, age_sugery_mean, age_sugery_sd,female, male)
+patient_characs = t(patient_characs)
+patient_characs
+```
+
+
